@@ -1,14 +1,14 @@
 import os
 import sys
 from anytree.render import RenderTree
-from src.download import extract_entries
+from src.download import extract_luxy_entries
 from src.visualize import create_tree
 from src.clean import check_parentheses, extract_parentheticals, remove_parentheticals, move_lastname, extract_name_parts, standardize_abbreviations, remove_dates
 
-def process_url(url, output='output.txt'):
+def process_query(query, output='output.txt'):
 
     # Download entries from the given URL
-    entries = extract_entries(url)
+    entries = extract_luxy_entries(query)
 
     # Process entries
     entries = standardize_abbreviations(entries)
@@ -65,6 +65,6 @@ if __name__ == "__main__":
         print("Usage: python separate.py <url> [output]")
         sys.exit(1)
 
-    url = sys.argv[1]
+    query = sys.argv[1]
     output = sys.argv[2] if len(sys.argv) > 2 else 'output.txt'
-    process_url(url, output)
+    process_query(query, output)
