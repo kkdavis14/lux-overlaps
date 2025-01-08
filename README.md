@@ -36,10 +36,10 @@ This project is designed to take in a Yale Lux Search URL and identify potential
 To use the script, run the following command:
 
 ```sh
-python separate.py <url> [output]
+python separate.py <query> [output]
 ```
 
-- `<url>`: The Yale Lux Search URL to process.
+- `<query>`: The Yale Lux Search query to process.
 - `[output]`: (Optional) The output file to save the tree structure. Defaults to `output.txt`.
 
 ### Example
