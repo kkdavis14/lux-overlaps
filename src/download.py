@@ -1,12 +1,13 @@
 from luxy import PeopleGroups
+import tqdm
 
 def extract_luxy_entries(query):
     pg = PeopleGroups().filter(name=query, recordType="person").get()
     print("Total results:", pg.num_results)
     print("View URL:", pg.view_url)
     entries = []
-    for i, page in enumerate(pg.get_page_data_all(start_page=0), 1):
-        for j, item in enumerate(pg.get_items(page)):
+    for i, page in enumerate(tqdm.tqdm(pg.get_page_data_all(start_page=0), desc="Processing pages"), 1):
+        for j, item in enumerate(tqdm.tqdm(pg.get_items(page), desc="Processing items"), 1):
             item_data = pg.get_item_data(item)
             
             # Extract birth and death years
