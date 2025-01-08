@@ -21,8 +21,8 @@ This project is designed to take in a Yale Lux Search URL and identify potential
 1. Clone the repository:
 
     ```sh
-    git clone https://github.com/wjbmattingly/yale-lux-overlap
-    cd yale-lux-overlap
+    git clone https://github.com/project-lux/lux-overlaps
+    cd lux-overlaps
     ```
 
 2. Install the required Python packages:
