@@ -1,5 +1,4 @@
 anytree
 nameparser
-selenium
 tqdm
-beautifulsoup4
+luxy
