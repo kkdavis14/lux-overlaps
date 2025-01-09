@@ -5,7 +5,15 @@ import threading
 from typing import List, Dict
 
 def process_page(args: tuple) -> List[Dict]:
-    """Process a single page of results with its own progress bar"""
+    """
+    Processes a single page of results with its own progress bar.
+
+    Args:
+        args (tuple): A tuple containing the PeopleGroups object, the page data, and the page number.
+
+    Returns:
+        List[Dict]: A list of dictionaries containing the processed data for each item on the page.
+    """
     pg, page, page_num = args
     entries = []
     
@@ -64,20 +72,28 @@ def process_page(args: tuple) -> List[Dict]:
     return entries
 
 def extract_luxy_entries(luxy_query, max_workers: int = 20):
+    """
+    Extracts entries from the Luxy API using a PeopleGroups object.
+
+    Args:
+        luxy_query (LuxY Class): The LuxY object to use for querying.
+        max_workers (int): The maximum number of threads to use for processing.
+
+    Returns:
+        List[Dict]: A list of dictionaries containing the processed data for each item on the page.
+    """
     # Initialize tqdm for parallel bars
     tqdm.set_lock(threading.RLock())
     
-    # Clear screen and move cursor to top
-    print("\033[2J\033[H", end="")
-    print("\033[?25l", end="")  # Hide cursor
-    
+    # Remove terminal clearing commands
     print(f"Processing {luxy_query.num_results} results from {luxy_query.view_url}")
     
     # Calculate required lines based on actual number of pages
     all_pages = list(luxy_query.get_page_data_all(start_page=0))
     num_pages = len(all_pages)
-    required_lines = min(num_pages + 2, max_workers + 2)  # Add small buffer, but cap at max_workers
-    print("\n" * required_lines)
+    
+    # Just add a single newline for spacing
+    print()
     
     # Prepare arguments for each thread
     thread_args = [(luxy_query, page, i) for i, page in enumerate(all_pages, 0)]

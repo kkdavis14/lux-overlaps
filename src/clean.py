@@ -138,6 +138,17 @@ def move_lastname(entries):
 
 
 def extract_name_parts(entries):
+    """
+    Extracts the component parts (first name, last name, middle name, etc.) from the clean_name field
+    of each person entry using the HumanName library.
+
+    Args:
+        entries (list): A list of dictionaries containing the extracted data.
+
+    Returns:
+        list: The updated list of dictionaries with name parts (last_name, first_name, middle_name, 
+              suffix, nickname) added to each entry.
+    """
     for entry in entries:
         if 'clean_name' in entry and entry['clean_name'] and entry['type'] == 'person':
             name_parts = HumanName(entry['clean_name'])

@@ -1,8 +1,18 @@
 from anytree import Node
 import itertools
+from anytree.render import RenderTree
 
 def create_tree(entries, consider_dates=True):
-    
+    """
+    Creates a tree structure from a list of entries.
+
+    Args:
+        entries (list): A list of dictionaries containing the extracted data.
+        consider_dates (bool): Whether to consider dates in the tree structure.
+
+    Returns:
+        Node: The root node of the tree.
+    """
     entries = [entry for entry in entries if entry['type'] == 'person' and entry["manual_review"] == False]
     root = Node("Names")
     
@@ -61,3 +71,47 @@ def create_tree(entries, consider_dates=True):
                     Node(entry['name'], parent=last_name_node)
     
     return root
+
+def write_tree(tree, output):
+    """
+    Writes the tree structure to a file.
+    """
+    with open(output, 'w') as f:
+        f.write(tree)
+        
+def tree_to_string(tree):
+    """
+    Converts a tree to a string.
+    """
+    output_branches = []
+    # Print the tree
+    for pre, _, node in RenderTree(tree):
+        output_branches.append(f"{pre}{node.name}")
+
+    output_str = "\n".join(output_branches)
+    return output_str
+
+def find_overlaps(tree):
+    """
+    Finds overlaps in the tree structure.
+
+    Args:
+        tree (Node): The root node of the tree.
+
+    Returns:
+        str: A string representation of the overlaps.
+    """
+    overlap_branches = []
+
+    # Iterate through the tree to find instances where the final child has 2 or more nodes
+    for pre, _, node in RenderTree(tree):
+        if node.is_leaf and node.parent and len(node.parent.children) > 1:
+            if node == node.parent.children[-1]:  # Check if it's the last child
+                parent = node.parent
+                overlap_branches.append(f"── {parent.name}")
+                for child in parent.children:
+                    overlap_branches.append(f"   └── {child.name}")
+
+    overlap_str = "\n".join(overlap_branches)
+
+    return overlap_str
