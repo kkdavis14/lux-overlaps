@@ -7,6 +7,16 @@ from src.clean import check_parentheses, extract_parentheticals, remove_parenthe
 from luxy import PeopleGroups
 
 def process_query(query, output='output.txt'):
+    """
+    Processes a query and creates a tree structure from the results.
+
+    Args:
+        query (str): The query to search for.
+        output (str): The output file name.
+
+    Returns:
+        None
+    """
     pg = PeopleGroups().filter(name=query, recordType="person").get()
 
     # Download entries from the given URL

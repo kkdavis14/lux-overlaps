@@ -5,7 +5,15 @@ import threading
 from typing import List, Dict
 
 def process_page(args: tuple) -> List[Dict]:
-    """Process a single page of results with its own progress bar"""
+    """
+    Processes a single page of results with its own progress bar.
+
+    Args:
+        args (tuple): A tuple containing the PeopleGroups object, the page data, and the page number.
+
+    Returns:
+        List[Dict]: A list of dictionaries containing the processed data for each item on the page.
+    """
     pg, page, page_num = args
     entries = []
     
@@ -60,6 +68,16 @@ def process_page(args: tuple) -> List[Dict]:
     return entries
 
 def extract_luxy_entries(luxy_query, max_workers: int = 20):
+    """
+    Extracts entries from the Luxy API using a PeopleGroups object.
+
+    Args:
+        luxy_query (LuxY Class): The LuxY object to use for querying.
+        max_workers (int): The maximum number of threads to use for processing.
+
+    Returns:
+        List[Dict]: A list of dictionaries containing the processed data for each item on the page.
+    """
     # Initialize tqdm for parallel bars
     tqdm.set_lock(threading.RLock())
     

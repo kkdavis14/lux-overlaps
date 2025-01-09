@@ -2,7 +2,16 @@ from anytree import Node
 import itertools
 
 def create_tree(entries, consider_dates=True):
-    
+    """
+    Creates a tree structure from a list of entries.
+
+    Args:
+        entries (list): A list of dictionaries containing the extracted data.
+        consider_dates (bool): Whether to consider dates in the tree structure.
+
+    Returns:
+        Node: The root node of the tree.
+    """
     entries = [entry for entry in entries if entry['type'] == 'person' and entry["manual_review"] == False]
     root = Node("Names")
     
