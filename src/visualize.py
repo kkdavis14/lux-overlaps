@@ -24,9 +24,9 @@ def create_tree(entries, consider_dates=True):
         for name, subgroup in name_groups:
             if name:  # Only create a node if there's a name to use
                 if name[3]: 
-                    name_node = Node(f"{name[1]} {name[2]} {name[0]} ({name[3]})".strip(), parent=last_name_node)
+                    name_node = Node(' '.join(f"{name[1]} {name[2]} {name[0]} ({name[3]})".split()), parent=last_name_node)
                 else:
-                    name_node = Node(f"{name[1]} {name[2]} {name[0]}".strip(), parent=last_name_node)
+                    name_node = Node(' '.join(f"{name[1]} {name[2]} {name[0]}".split()), parent=last_name_node)
                 
                 # Convert subgroup iterator to list for multiple uses
                 subgroup_list = list(subgroup)
