@@ -4,6 +4,19 @@ from concurrent.futures import ThreadPoolExecutor
 import threading
 from typing import List, Dict
 
+
+def get_priority_uri(uris, uri_priority):
+    """
+    Returns the highest-priority URI based on the defined hierarchy.
+    If multiple URIs match the same priority level, returns the first.
+    """
+    for base in uri_priority:
+        for uri in uris:
+            if uri.startswith(base):
+                return uri
+    # If no matches, return the first URI or None
+    return uris[0] if uris else None
+
 def process_page(args: tuple) -> List[Dict]:
     """
     Processes a single page of results with its own progress bar.
@@ -17,6 +30,23 @@ def process_page(args: tuple) -> List[Dict]:
     pg, page, page_num = args
     entries = []
     
+
+    uri_priority = [
+        "https://linked-art.library.yale.edu/",
+        "https://images.peabody.yale.edu/"
+        "https://media.art.yale.edu/",
+        "https://ycba-lux.s3.amazonaws.com/",
+        "https://data.paul-mellon-center.ac.uk/",
+        "http://id.loc.gov/",
+        "http://vocab.getty.edu/",
+        "http://www.wikidata.org/",
+        "http://data.bnf.fr/",
+        "https://d-nb.info/",
+        "http://viaf.org",
+        "https://orcid.org/",
+        "https://ror.org/"
+    ]
+
     items = pg.get_items(page)
     filename = f"Page {page_num}"
     
@@ -49,13 +79,14 @@ def process_page(args: tuple) -> List[Dict]:
 
             equivalents = item_data.get('equivalent', [])
             equivalent_ids = [equiv['id'] for equiv in equivalents if 'id' in equiv]
+            priority_uri = get_priority_uri(equivalent_ids, uri_priority)
             
             entry = {
                 'name': item_data["_label"],
                 'birth_year': birth_year,
                 'death_year': death_year,
                 'id': item_data.get('id', None),
-                'equivalent': equivalent_ids,
+                'equivalent': priority_uri if priority_uri else "",
                 'page_number': page_num,
                 'item_number': j,
                 "type": "person"

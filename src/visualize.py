@@ -43,8 +43,7 @@ def create_tree(entries, consider_dates=True):
 
                 for entry in subgroup_list:
                     if entry.get('equivalent'):
-                        for uri in entry['equivalent']:
-                            Node(f"Equivalent URI: {uri}", parent=name_node)
+                        Node(f"Equivalent URI: {entry['equivalent']}", parent=name_node)
 
                 
                 if consider_dates:
