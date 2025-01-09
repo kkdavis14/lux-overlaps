@@ -38,12 +38,16 @@ def process_page(args: tuple) -> List[Dict]:
                 death_ts = item_data['died']['timespan'] 
                 if 'identified_by' in death_ts and death_ts['identified_by']:
                     death_year = death_ts['identified_by'][0]['content'][:4]
+
+            equivalents = item_data.get('equivalent', [])
+            equivalent_ids = [equiv['id'] for equiv in equivalents if 'id' in equiv]
             
             entry = {
                 'name': item_data["_label"],
                 'birth_year': birth_year,
                 'death_year': death_year,
                 'id': item_data.get('id', None),
+                'equivalent': equivalent_ids,
                 'page_number': page_num,
                 'item_number': j,
                 "type": "person"
