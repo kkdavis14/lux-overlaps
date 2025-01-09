@@ -4,11 +4,13 @@ from anytree.render import RenderTree
 from src.download import extract_luxy_entries
 from src.visualize import create_tree
 from src.clean import check_parentheses, extract_parentheticals, remove_parentheticals, move_lastname, extract_name_parts, standardize_abbreviations, remove_dates
+from luxy import PeopleGroups
 
 def process_query(query, output='output.txt'):
+    pg = PeopleGroups().filter(name=query, recordType="person").get()
 
     # Download entries from the given URL
-    entries = extract_luxy_entries(query)
+    entries = extract_luxy_entries(pg)
 
     # Process entries
     entries = standardize_abbreviations(entries)

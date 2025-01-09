@@ -59,7 +59,7 @@ def process_page(args: tuple) -> List[Dict]:
     
     return entries
 
-def extract_luxy_entries(query, max_workers: int = 20):
+def extract_luxy_entries(luxy_query, max_workers: int = 20):
     # Initialize tqdm for parallel bars
     tqdm.set_lock(threading.RLock())
     
@@ -67,19 +67,17 @@ def extract_luxy_entries(query, max_workers: int = 20):
     print("\033[2J\033[H", end="")
     print("\033[?25l", end="")  # Hide cursor
     
-    pg = PeopleGroups().filter(name=query, recordType="person").get()
-    print(f"Processing {pg.num_results} results from {pg.view_url}")
+    print(f"Processing {luxy_query.num_results} results from {luxy_query.view_url}")
     
-    # Create space for all progress bars
-    required_lines = max_workers + 5  # Extra buffer for header and potential overflow
+    # Calculate required lines based on actual number of pages
+    all_pages = list(luxy_query.get_page_data_all(start_page=0))
+    num_pages = len(all_pages)
+    required_lines = min(num_pages + 2, max_workers + 2)  # Add small buffer, but cap at max_workers
     print("\n" * required_lines)
     
-    # Get all pages first
-    all_pages = list(pg.get_page_data_all(start_page=0))
-    
     # Prepare arguments for each thread
-    thread_args = [(pg, page, i) for i, page in enumerate(all_pages, 0)]
-    
+    thread_args = [(luxy_query, page, i) for i, page in enumerate(all_pages, 0)]
+
     # Initialize results list
     all_entries = []
     
