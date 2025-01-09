@@ -73,9 +73,9 @@ def write_tree(tree, output):
     with open(output, 'w') as f:
         f.write(tree)
         
-def branch_to_string(tree):
+def tree_to_string(tree):
     """
-    Converts a branch to a string.
+    Converts a tree to a string.
     """
     output_branches = []
     # Print the tree

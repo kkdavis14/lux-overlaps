@@ -1,7 +1,7 @@
 import os
 import sys
 from src.download import extract_luxy_entries
-from src.visualize import create_tree, find_overlaps, write_tree, branch_to_string
+from src.visualize import create_tree, find_overlaps, write_tree, tree_to_string
 from src.clean import check_parentheses, extract_parentheticals, remove_parentheticals, move_lastname, extract_name_parts, standardize_abbreviations, remove_dates
 from luxy import PeopleGroups
 
@@ -37,7 +37,7 @@ def process_query(query, output='output.txt'):
     if os.path.exists(output):
         print(f"Warning: Overwriting existing file {output}")
 
-    output_str = branch_to_string(tree)
+    output_str = tree_to_string(tree)
     write_tree(output_str, output)
     print(f"Tree saved to {output}")
 
