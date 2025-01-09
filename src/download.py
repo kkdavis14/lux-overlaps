@@ -81,17 +81,15 @@ def extract_luxy_entries(luxy_query, max_workers: int = 20):
     # Initialize tqdm for parallel bars
     tqdm.set_lock(threading.RLock())
     
-    # Clear screen and move cursor to top
-    print("\033[2J\033[H", end="")
-    print("\033[?25l", end="")  # Hide cursor
-    
+    # Remove terminal clearing commands
     print(f"Processing {luxy_query.num_results} results from {luxy_query.view_url}")
     
     # Calculate required lines based on actual number of pages
     all_pages = list(luxy_query.get_page_data_all(start_page=0))
     num_pages = len(all_pages)
-    required_lines = min(num_pages + 2, max_workers + 2)  # Add small buffer, but cap at max_workers
-    print("\n" * required_lines)
+    
+    # Just add a single newline for spacing
+    print()
     
     # Prepare arguments for each thread
     thread_args = [(luxy_query, page, i) for i, page in enumerate(all_pages, 0)]

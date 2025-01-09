@@ -17,6 +17,7 @@ def process_query(query, output='output.txt'):
         None
     """
     pg = PeopleGroups().filter(name=query, recordType="person").get()
+    print(f"Examining the following data: {pg.view_url}")
 
     # Download entries from the given URL
     entries = extract_luxy_entries(pg)
