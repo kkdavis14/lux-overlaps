@@ -40,6 +40,11 @@ def create_tree(entries, consider_dates=True):
                 
                 # Convert subgroup iterator to list for multiple uses
                 subgroup_list = list(subgroup)
+
+                for entry in subgroup_list:
+                    if entry.get('equivalent'):
+                        Node(f"Equivalent URI: {entry['equivalent']}", parent=name_node)
+
                 
                 if consider_dates:
                     # Further group by dates
