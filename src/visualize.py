@@ -20,55 +20,35 @@ def create_tree(entries, consider_dates=True):
     last_name_groups = itertools.groupby(sorted(entries, key=lambda x: x['last_name'] or ''), key=lambda x: x['last_name'] or '')
     
     for last_name, group in last_name_groups:
-        last_name_node = Node(last_name, parent=root)
+        # For last name node, don't show equivalent
+        last_name_node = Node(last_name, parent=root, display_name=last_name)
         
-        # Convert group iterator to list for multiple uses
         group_list = list(group)
         
-        # Group by expanded name if it exists, otherwise by other names
         name_groups = itertools.groupby(
             sorted(group_list, key=lambda x: (x['last_name'] or '', x['first_name'] or '', x['middle_name'] or '', x.get('parentheticals', [''])[0] if x.get('parentheticals') else '')),
             key=lambda x: (x['last_name'] or '', x['first_name'] or '', x['middle_name'] or '', x.get('parentheticals', [''])[0] if x.get('parentheticals') else '')
         )
         
         for name, subgroup in name_groups:
-            if name:  # Only create a node if there's a name to use
-                if name[3]: 
-                    name_node = Node(' '.join(f"{name[1]} {name[2]} {name[0]} ({name[3]})".split()), parent=last_name_node)
+            subgroup_list = list(subgroup)
+            if name:
+                if name[3]:
+                    base_name = ' '.join(f"{name[1]} {name[2]} {name[0]} ({name[3]})".split())
                 else:
-                    name_node = Node(' '.join(f"{name[1]} {name[2]} {name[0]}".split()), parent=last_name_node)
+                    base_name = ' '.join(f"{name[1]} {name[2]} {name[0]}".split())
                 
-                # Convert subgroup iterator to list for multiple uses
-                subgroup_list = list(subgroup)
-
-                # for entry in subgroup_list:
-                #     if entry.get('equivalent'):
-                #         Node(f"Equivalent URI: {entry['equivalent']}", parent=name_node)
-
+                # Only add equivalent if it exists for this exact name
+                equivalent = next((entry['equivalent'] for entry in subgroup_list 
+                                if entry.get('equivalent') and entry['name'] == base_name), None)
+                display_name = f"{base_name} (equivalent: {equivalent})" if equivalent else base_name
+                name_node = Node(base_name, parent=last_name_node, display_name=display_name)
                 
-                if consider_dates:
-                    # Further group by dates
-                    date_groups = itertools.groupby(
-                        sorted(subgroup_list, key=lambda x: x.get('dates', '') or ''),
-                        key=lambda x: x.get('dates', '') or ''
-                    )
-                    
-                    for date, date_subgroup in date_groups:
-                        if date:  # Only create a node if there's a date to use
-                            Node(f"{date}", parent=name_node)
-                        else:
-                            # If no date, add entries directly under the name node
-                            for entry in date_subgroup:
-                                Node(entry['name'], parent=name_node)
-                else:
-                    # If not considering dates, add all entries under the name node
-                    for entry in subgroup_list:
-                        Node(entry['name'], parent=name_node)
-            else:
-                # If no expanded or other names, add entries directly under the last name node
-                for entry in subgroup:
-                    Node(entry['name'], parent=last_name_node)
-    
+                # Add individual name variations, only showing equivalent if it exists
+                for entry in subgroup_list:
+                    entry_display = f"{entry['name']} (equivalent: {entry['equivalent']})" if entry.get('equivalent') else entry['name']
+                    Node(entry['name'], parent=name_node, display_name=entry_display)
+
     return root
 
 def write_tree(tree, output):
@@ -80,12 +60,13 @@ def write_tree(tree, output):
         
 def tree_to_string(tree):
     """
-    Converts a tree to a string.
+    Converts a tree to a string using display names for visualization.
     """
     output_branches = []
-    # Print the tree
     for pre, _, node in RenderTree(tree):
-        output_branches.append(f"{pre}{node.name}")
+        # Use display_name if it exists, otherwise use name
+        display_text = getattr(node, 'display_name', node.name)
+        output_branches.append(f"{pre}{display_text}")
 
     output_str = "\n".join(output_branches)
     return output_str
@@ -107,9 +88,13 @@ def find_overlaps(tree):
         if node.is_leaf and node.parent and len(node.parent.children) > 1:
             if node == node.parent.children[-1]:  # Check if it's the last child
                 parent = node.parent
-                overlap_branches.append(f"── {parent.name}")
+                # Use display_name for parent
+                parent_display = getattr(parent, 'display_name', parent.name)
+                overlap_branches.append(f"── {parent_display}")
                 for child in parent.children:
-                    overlap_branches.append(f"   └── {child.name}")
+                    # Use display_name for children
+                    child_display = getattr(child, 'display_name', child.name)
+                    overlap_branches.append(f"   └── {child_display}")
 
     overlap_str = "\n".join(overlap_branches)
 

@@ -80,9 +80,31 @@ def process_page(args: tuple) -> List[Dict]:
             equivalents = item_data.get('equivalent', [])
             equivalent_ids = [equiv['id'] for equiv in equivalents if 'id' in equiv]
             priority_uri = get_priority_uri(equivalent_ids, uri_priority)
-            
+            id_equivilant = "http://vocab.getty.edu/aat/300404670"
+            primary_name = None
+            for name in item_data["identified_by"]:
+                content = name["content"]
+                for classified_as in name.get("classified_as", []):
+                    # Check if equivalent exists before accessing
+                    if "equivalent" in classified_as:
+                        equiv = classified_as["equivalent"]
+                        if isinstance(equiv, list):
+                            # Handle case where equivalent is a list
+                            for eq in equiv:
+                                if eq["id"] == id_equivilant:
+                                    primary_name = content
+                                    break
+                        else:
+                            # Handle case where equivalent is a single object
+                            if equiv["id"] == id_equivilant:
+                                primary_name = content
+                                break
+            if not primary_name:
+                print("No primary name found")
+                break
+                
             entry = {
-                'name': item_data["_label"],
+                'name': primary_name, #change this to primary english name, then primary name, then _label
                 'birth_year': birth_year,
                 'death_year': death_year,
                 'id': item_data.get('id', None),
