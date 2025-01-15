@@ -104,7 +104,7 @@ def tree_to_csv(tree_str, output_file):
     # Write CSV file
     with open(output_file, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['Group', 'Primary URI', 'Related URI'])
+        writer.writerow(['Primary URI', 'Related URI', 'Group'])
         
         for group, uris in group_uris.items():
             if not uris:
@@ -116,7 +116,7 @@ def tree_to_csv(tree_str, output_file):
             
             # Write a row for each related URI
             for related_uri in sorted_uris[1:]:
-                writer.writerow([group, primary_uri, related_uri])
+                writer.writerow([primary_uri, related_uri, group])
 
 def process_query(query, output='output.txt'):
     """
