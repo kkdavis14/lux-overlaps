@@ -38,7 +38,7 @@ def process_chunk(chunk, query):
             results.append(result)
     return results
 
-def parallel_processing(query, cache, cfgs):
+def parallel_processing(query, cache, cfgs, chunk_size=10000):
     """
     Process records in parallel using multiprocessing.
     """
