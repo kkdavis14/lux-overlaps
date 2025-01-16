@@ -1,6 +1,6 @@
-from tqdm import tqdm
 import sys
 import os
+from tqdm import tqdm
 
 # Adjust paths for imports
 current_file = os.path.abspath(__file__)
@@ -18,40 +18,35 @@ cfgs = Config(basepath=basepath)
 idmap = cfgs.get_idmap()
 cfgs.instantiate_all()
 
-def process_records(query, recordcache, cache):
-    """Process all records in a single query."""
-    search_pattern = f"%{query}%"
-    table_name = f"{cache}_record_cache"
-
-    sql_query = f"""
-        SELECT data FROM ils_record_cache LIMIT 5;    
+def fetch_data(recordcache):
+    """Execute a simple SQL query and return the results."""
+    sql_query = """
+        SELECT data FROM ils_record_cache LIMIT 5;
     """
-
 
     results = []
     with recordcache._cursor(internal=False) as cur:
-        cur.execute(sql_query, (search_pattern,))
-        results = [row['name'] for row in cur.fetchall()]
+        cur.execute(sql_query)
+        results = [row['data'] for row in cur.fetchall()]
     
     return results
 
 def main():
-    if len(sys.argv) < 4 or sys.argv[2] != "--cache":
-        print("Usage: python script.py <query> --cache <cache_name>")
+    if len(sys.argv) < 3 or sys.argv[1] != "--cache":
+        print("Usage: python script.py --cache <cache_name>")
         sys.exit(1)
 
-    # Extract query and cache
-    query = sys.argv[1]
-    cache = sys.argv[3]
+    # Extract cache
+    cache = sys.argv[2]
 
     # Determine if cache is internal or external
     internal = cache in cfgs.internal
     recordcache = (cfgs.internal if internal else cfgs.external)[cache]['recordcache']
 
-    print(f"Processing records in cache '{cache}' for query '{query}'...")
-    results = process_records(query, recordcache, cache)
+    print(f"Fetching data from cache '{cache}'...")
+    results = fetch_data(recordcache)
 
-    print("Processing completed. Results:")
+    print("Query completed. Results:")
     for result in tqdm(results, desc="Results"):
         print(result)
 
