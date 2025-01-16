@@ -21,30 +21,32 @@ cfgs = Config(basepath=basepath)
 idmap = cfgs.get_idmap()
 cfgs.instantiate_all()
 
-def fetch_id_range(recordcache):
+def fetch_id_range(recordcache, cache):
     """Fetch the ID range from the database."""
-    qry = "SELECT MIN(id), MAX(id) FROM person_records"
+    table_name = f"{cache}_record_cache"
+    qry = f"SELECT MIN(id), MAX(id) FROM {table_name}"
     with recordcache._cursor(internal=False) as cur:
         cur.execute(qry)
         return cur.fetchone()
-        
+
+
 def process_chunk(chunk_range, query, recordcache):
     """Process a chunk of records."""
     start_id, end_id = chunk_range
     results = []
     search_pattern = f"%{query}%"
+    table_name = f"{cache}_record_cache"
     
     sql_query = """
-        SELECT jsonb_array_elements(data->'identified_by')->>'content' as name
-        FROM person_records
-        WHERE id BETWEEN %s AND %s
-          AND EXISTS (
-              SELECT 1
-              FROM jsonb_array_elements(data->'identified_by') as identifier,
-                   jsonb_array_elements(identifier->'classified_as') as classification
-              WHERE classification->>'id' = 'http://vocab.getty.edu/aat/300404670'
-          )
+        SELECT 
+            jsonb_array_elements(data->'identified_by')->>'content' AS name
+        FROM {table_name},
+             jsonb_array_elements(data->'identified_by') AS identifier
+        WHERE jsonb_array_elements(identifier->'classified_as')->>'id' = 'http://vocab.getty.edu/aat/300404670'
+          AND data->>'type' = 'Person'
+          AND id BETWEEN %s AND %s
           AND jsonb_array_elements(data->'identified_by')->>'content' ILIKE %s;
+
     """
     
     with recordcache._cursor(internal=False) as cur:
@@ -60,7 +62,7 @@ def parallel_processing(query, cache, cfgs, chunk_size=100000):
     recordcache = (cfgs.internal if internal else cfgs.external)[cache]['recordcache']
     
     # Get ID range for partitioning
-    min_id, max_id = fetch_id_range(recordcache)
+    min_id, max_id = fetch_id_range(recordcache, cache)
     if min_id is None or max_id is None:
         print("No records found.")
         return []
@@ -71,7 +73,7 @@ def parallel_processing(query, cache, cfgs, chunk_size=100000):
     # Use ProcessPoolExecutor for parallel processing
     results = []
     with ProcessPoolExecutor() as executor:
-        futures = {executor.submit(process_chunk, chunk, query, recordcache): chunk for chunk in chunks}
+        futures = {executor.submit(process_chunk, chunk, query, recordcache, cache): chunk for chunk in chunks}
 
         with tqdm(total=len(futures), desc="Processing Chunks") as pbar:
             for future in as_completed(futures):
@@ -82,6 +84,7 @@ def parallel_processing(query, cache, cfgs, chunk_size=100000):
                 pbar.update(1)
     
     return results
+
 
 def main():
     if len(sys.argv) < 4 or sys.argv[2] != "--cache":
