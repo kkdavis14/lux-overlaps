@@ -2,6 +2,7 @@ from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
 import sys
 import os
+from more_itertools import chunked
 
 current_file = os.path.abspath(__file__) 
 lux_overlaps_root = os.path.dirname(os.path.dirname(current_file))
@@ -28,6 +29,15 @@ def process_record(record):
                 return identifier.get("content", "")
     return None
 
+def process_chunk(chunk, query):
+    """Process a chunk of records and filter by query."""
+    results = []
+    for record in chunk:
+        result = process_record(record)
+        if result and query.lower() in result.lower():
+            results.append(result)
+    return results
+
 def parallel_processing(query, cache, cfgs):
     """
     Process records in parallel using multiprocessing.
@@ -36,19 +46,19 @@ def parallel_processing(query, cache, cfgs):
     recordcache = (cfgs.internal if internal else cfgs.external)[cache]['recordcache']
 
     # Retrieve all "Person" records
-    records = list(recordcache.iter_records_type("Person"))
+    record_generator = recordcache.iter_records_type("Person")
+    chunks = chunked(record_generator, chunk_size)
 
     # Determine the number of CPU cores to use
     num_workers = cpu_count()
 
-    # Use multiprocessing with a progress bar
+    all_results = []
     with Pool(num_workers) as pool:
-        # Wrap pool.imap with tqdm for progress tracking
-        processed_results = list(tqdm(pool.imap(process_record, records), total=len(records), desc="Processing Records"))
+        for chunk_results in tqdm(pool.imap(lambda chunk: process_chunk(chunk, query), chunks),
+                                  desc="Processing Chunks"):
+            all_results.extend(chunk_results)
 
-    filtered_results = [name for name in processed_results if name and query.lower() in name.lower()]
-
-    return filtered_results
+    return all_results
 
 def main():
     if len(sys.argv) < 4 or sys.argv[2] != "--cache":
