@@ -27,14 +27,14 @@ def fetch_chunk(chunk_range, query_word, recordcache, table_name):
 
     sql_query = f"""
         SELECT 
-            identified_by::jsonb->>'content' AS name
+            identified_by->>'content' AS name
         FROM {table_name},
              LATERAL jsonb_array_elements(data::jsonb->'identified_by') AS identified_by,
-             LATERAL jsonb_array_elements(identified_by::jsonb->'classified_as') AS classified_as
+             LATERAL jsonb_array_elements(identified_by->'classified_as') AS classified_as
         WHERE data::jsonb->>'type' = 'Person'
-          AND classified_as::jsonb->>'id' = 'http://vocab.getty.edu/aat/300404670'
-          AND identified_by::jsonb->>'content' ILIKE %s
-          AND id::jsonb BETWEEN %s AND %s;
+          AND classified_as->>'id' = 'http://vocab.getty.edu/aat/300404670'
+          AND identified_by->>'content' ILIKE %s
+          AND identifier BETWEEN %s AND %s;
     """
 
     results = []
@@ -50,7 +50,7 @@ def fetch_data(query_word, recordcache, cache, chunk_size=50000):
 
     # Determine ID range for chunking
     with recordcache._cursor(internal=False) as cur:
-        cur.execute(f"SELECT MIN(id), MAX(id) FROM {table_name}")
+        cur.execute(f"SELECT MIN(identifier), MAX(identifier) FROM {table_name}")
         min_id, max_id = cur.fetchone()
 
     if not min_id or not max_id:
@@ -58,7 +58,7 @@ def fetch_data(query_word, recordcache, cache, chunk_size=50000):
         return []
 
     # Generate chunk ranges
-    chunks = [(i, min(i + chunk_size - 1, max_id)) for i in range(min_id, max_id + 1, chunk_size)]
+    chunks = [(i, min(i + chunk_size - 1, max_id)) for i in range(int(min_id), int(max_id) + 1, chunk_size)]
     
     # Process chunks with threading
     results = []
@@ -95,3 +95,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
