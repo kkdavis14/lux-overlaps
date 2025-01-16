@@ -1,7 +1,8 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
 import sys
 import os
-import json
-from tqdm import tqdm
+from math import ceil
 
 # Adjust paths for imports
 current_file = os.path.abspath(__file__)
@@ -19,13 +20,10 @@ cfgs = Config(basepath=basepath)
 idmap = cfgs.get_idmap()
 cfgs.instantiate_all()
 
-def fetch_data(query_word, recordcache, cache):
-    """
-    Query SQL to find records with type "Person" and classified_as AAT 300404670,
-    matching the query word in identified_by->content.
-    """
-    search_pattern = f"%{query_word}%"  # Prepare search pattern for ILIKE
-    table_name = f"{cache}_record_cache"
+def fetch_chunk(chunk_range, query_word, recordcache, table_name):
+    """Fetch records for a specific chunk."""
+    start_id, end_id = chunk_range
+    search_pattern = f"%{query_word}%"
 
     sql_query = f"""
         SELECT 
@@ -35,16 +33,45 @@ def fetch_data(query_word, recordcache, cache):
              LATERAL jsonb_array_elements(identified_by::jsonb->'classified_as') AS classified_as
         WHERE data::jsonb->>'type' = 'Person'
           AND classified_as::jsonb->>'id' = 'http://vocab.getty.edu/aat/300404670'
-          AND identified_by::jsonb->>'content' ILIKE %s;
+          AND identified_by::jsonb->>'content' ILIKE %s
+          AND id::jsonb BETWEEN %s AND %s;
     """
 
     results = []
     with recordcache._cursor(internal=False) as cur:
-        cur.execute(sql_query, (search_pattern,))
+        cur.execute(sql_query, (search_pattern, start_id, end_id))
         results = [row['name'] for row in cur.fetchall()]
     
     return results
 
+def fetch_data(query_word, recordcache, cache, chunk_size=50000):
+    """Fetch data in parallel using threading."""
+    table_name = f"{cache}_record_cache"
+
+    # Determine ID range for chunking
+    with recordcache._cursor(internal=False) as cur:
+        cur.execute(f"SELECT MIN(id), MAX(id) FROM {table_name}")
+        min_id, max_id = cur.fetchone()
+
+    if not min_id or not max_id:
+        print("No records found.")
+        return []
+
+    # Generate chunk ranges
+    chunks = [(i, min(i + chunk_size - 1, max_id)) for i in range(min_id, max_id + 1, chunk_size)]
+    
+    # Process chunks with threading
+    results = []
+    with ThreadPoolExecutor() as executor:
+        futures = {
+            executor.submit(fetch_chunk, chunk, query_word, recordcache, table_name): chunk
+            for chunk in chunks
+        }
+        
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Processing Chunks"):
+            results.extend(future.result())
+    
+    return results
 
 def main():
     if len(sys.argv) < 4 or sys.argv[2] != "--cache":
