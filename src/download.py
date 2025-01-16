@@ -25,12 +25,12 @@ def process_records(query, recordcache, cache):
 
     sql_query = f"""
         SELECT 
-            jsonb_array_elements(data->'identified_by')->>'content' AS name
+            jsonb_array_elements(data::jsonb->'identified_by')->>'content' AS name
         FROM {table_name},
-             jsonb_array_elements(data->'identified_by') AS identifier
+             jsonb_array_elements(data::jsonb->'identified_by') AS identifier
         WHERE jsonb_array_elements(identifier->'classified_as')->>'id' = 'http://vocab.getty.edu/aat/300404670'
-          AND data->>'type' = 'Person'
-          AND jsonb_array_elements(data->'identified_by')->>'content' ILIKE %s;
+          AND data::jsonb->>'type' = 'Person'
+          AND jsonb_array_elements(data::jsonb->'identified_by')->>'content' ILIKE %s;
     """
 
     results = []
