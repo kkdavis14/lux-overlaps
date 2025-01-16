@@ -32,7 +32,7 @@ def fetch_data(query_word, recordcache, cache):
             jsonb_array_elements(data::jsonb->'identified_by')->>'content' AS name
         FROM {table_name},
              jsonb_array_elements(data::jsonb->'identified_by') AS identifier
-        WHERE jsonb_array_elements(identifier->'classified_as')->>'id' = 'http://vocab.getty.edu/aat/300404670'
+        WHERE jsonb_array_elements(identifier::jsonb->'classified_as')->>'id' = 'http://vocab.getty.edu/aat/300404670'
           AND data::jsonb->>'type' = 'Person'
           AND jsonb_array_elements(data::jsonb->'identified_by')->>'content' ILIKE %s;
     """
