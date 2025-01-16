@@ -1,11 +1,12 @@
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from more_itertools import chunked
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import sys
 import os
 
-
-current_file = os.path.abspath(__file__) 
+# Adjust paths for imports
+current_file = os.path.abspath(__file__)
 lux_overlaps_root = os.path.dirname(os.path.dirname(current_file))
 parent_dir = os.path.dirname(lux_overlaps_root)
 sys.path.insert(0, parent_dir)
@@ -13,58 +14,72 @@ sys.path.insert(0, parent_dir)
 from dotenv import load_dotenv
 from pipeline.config import Config
 
-
+# Load environment variables and initialize configuration
 load_dotenv()
 basepath = os.getenv("LUX_BASEPATH", "")
 cfgs = Config(basepath=basepath)
 idmap = cfgs.get_idmap()
 cfgs.instantiate_all()
 
-def process_record(record):
-    """Process a single record."""
-    data = record['data']
-    # Extract the primary name
-    for identifier in data.get("identified_by", []):
-        for cxn in identifier.get("classified_as", []):
-            if cxn.get("id") == "http://vocab.getty.edu/aat/300404670":
-                return identifier.get("content", "")
-    return None
+def fetch_id_range(recordcache):
+    """Fetch the ID range from the database."""
+    with recordcache.connection.cursor() as cur:
+        cur.execute("SELECT MIN(id), MAX(id) FROM person_records")
+        return cur.fetchone()
 
-def process_chunk(chunk, query):
-    """Process a chunk of records and filter by query."""
+def process_chunk(chunk_range, query, recordcache):
+    """Process a chunk of records."""
+    start_id, end_id = chunk_range
     results = []
-    for record in chunk:
-        result = process_record(record)
-        if result and query.lower() in result.lower():
-            results.append(result)
+    search_pattern = f"%{query}%"
+    
+    sql_query = """
+        SELECT jsonb_array_elements(data->'identified_by')->>'content' as name
+        FROM person_records
+        WHERE id BETWEEN %s AND %s
+          AND EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements(data->'identified_by') as identifier,
+                   jsonb_array_elements(identifier->'classified_as') as classification
+              WHERE classification->>'id' = 'http://vocab.getty.edu/aat/300404670'
+          )
+          AND jsonb_array_elements(data->'identified_by')->>'content' ILIKE %s;
+    """
+    
+    with recordcache.connection.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(sql_query, (start_id, end_id, search_pattern))
+        results.extend(row['name'] for row in cur.fetchall())
+    
     return results
 
-
-def parallel_processing(query, cache, cfgs, chunk_size=25000):
-    """
-    Incrementally process records in parallel using multiprocessing with chunking.
-    """
+def parallel_processing(query, cache, cfgs, chunk_size=100000):
+    """Parallel processing with PostgreSQL partitioning."""
     internal = cache in cfgs.internal
     recordcache = (cfgs.internal if internal else cfgs.external)[cache]['recordcache']
+    
+    # Get ID range for partitioning
+    min_id, max_id = fetch_id_range(recordcache)
+    if min_id is None or max_id is None:
+        print("No records found.")
+        return []
 
-    # Retrieve all "Person" records
-    record_generator = recordcache.iter_records_type("Person")
-    chunks = chunked(record_generator, chunk_size)
-
+    # Create chunks
+    chunks = [(i, min(i + chunk_size - 1, max_id)) for i in range(min_id, max_id + 1, chunk_size)]
 
     # Use ProcessPoolExecutor for parallel processing
+    results = []
     with ProcessPoolExecutor() as executor:
-        # Submit all chunk processing tasks to the executor
-        future_to_chunk = {executor.submit(process_chunk, chunk, query): chunk for chunk in chunks}
+        futures = {executor.submit(process_chunk, chunk, query, recordcache): chunk for chunk in chunks}
 
-        # Use tqdm to track progress dynamically
-        for future in tqdm(as_completed(future_to_chunk), total=len(future_to_chunk), desc="Processing Chunks"):
-            try:
-                all_results.extend(future.result())
-            except Exception as e:
-                print(f"Error processing chunk: {e}")
-
-    return all_results
+        with tqdm(total=len(futures), desc="Processing Chunks") as pbar:
+            for future in as_completed(futures):
+                try:
+                    results.extend(future.result())
+                except Exception as e:
+                    print(f"Error processing chunk {futures[future]}: {e}")
+                pbar.update(1)
+    
+    return results
 
 def main():
     if len(sys.argv) < 4 or sys.argv[2] != "--cache":
