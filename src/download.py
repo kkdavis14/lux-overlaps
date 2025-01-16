@@ -1,4 +1,4 @@
-from tdqm import tqdm
+from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
 import sys
 import os
