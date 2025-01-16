@@ -24,14 +24,9 @@ def process_records(query, recordcache, cache):
     table_name = f"{cache}_record_cache"
 
     sql_query = f"""
-        SELECT 
-            jsonb_array_elements(data::jsonb->'identified_by')->>'content' AS name
-        FROM {table_name},
-             jsonb_array_elements(data::jsonb->'identified_by') AS identifier
-        WHERE jsonb_array_elements(identifier->'classified_as')->>'id' = 'http://vocab.getty.edu/aat/300404670'
-          AND data::jsonb->>'type' = 'Person'
-          AND jsonb_array_elements(data::jsonb->'identified_by')->>'content' ILIKE %s;
+        SELECT data FROM ils_record_cache LIMIT 5;    
     """
+
 
     results = []
     with recordcache._cursor(internal=False) as cur:
