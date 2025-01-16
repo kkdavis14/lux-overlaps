@@ -23,10 +23,11 @@ cfgs.instantiate_all()
 
 def fetch_id_range(recordcache):
     """Fetch the ID range from the database."""
-    with recordcache.connection.cursor() as cur:
-        cur.execute("SELECT MIN(id), MAX(id) FROM person_records")
+    qry = "SELECT MIN(id), MAX(id) FROM person_records"
+    with recordcache._cursor(internal=False) as cur:
+        cur.execute(qry)
         return cur.fetchone()
-
+        
 def process_chunk(chunk_range, query, recordcache):
     """Process a chunk of records."""
     start_id, end_id = chunk_range
@@ -46,11 +47,12 @@ def process_chunk(chunk_range, query, recordcache):
           AND jsonb_array_elements(data->'identified_by')->>'content' ILIKE %s;
     """
     
-    with recordcache.connection.cursor(cursor_factory=RealDictCursor) as cur:
+    with recordcache._cursor(internal=False) as cur:
         cur.execute(sql_query, (start_id, end_id, search_pattern))
         results.extend(row['name'] for row in cur.fetchall())
     
     return results
+
 
 def parallel_processing(query, cache, cfgs, chunk_size=100000):
     """Parallel processing with PostgreSQL partitioning."""
