@@ -1,8 +1,9 @@
 from tqdm import tqdm
-from multiprocessing import Pool, cpu_count
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from more_itertools import chunked
 import sys
 import os
-from more_itertools import chunked
+
 
 current_file = os.path.abspath(__file__) 
 lux_overlaps_root = os.path.dirname(os.path.dirname(current_file))
@@ -38,10 +39,6 @@ def process_chunk(chunk, query):
             results.append(result)
     return results
 
-def process_chunk_with_query(args):
-    """Wrapper to process a chunk with a query."""
-    chunk, query = args
-    return process_chunk(chunk, query)
 
 def parallel_processing(query, cache, cfgs, chunk_size=25000):
     """
@@ -54,19 +51,18 @@ def parallel_processing(query, cache, cfgs, chunk_size=25000):
     record_generator = recordcache.iter_records_type("Person")
     chunks = chunked(record_generator, chunk_size)
 
-    # Determine the number of CPU cores to use
-    num_workers = cpu_count()
 
-    # Prepare the arguments for multiprocessing
-    chunk_args = ((chunk, query) for chunk in chunks)
+    # Use ProcessPoolExecutor for parallel processing
+    with ProcessPoolExecutor() as executor:
+        # Submit all chunk processing tasks to the executor
+        future_to_chunk = {executor.submit(process_chunk, chunk, query): chunk for chunk in chunks}
 
-    # Use multiprocessing with a dynamic progress bar
-    all_results = []
-    with Pool(num_workers) as pool:
-        with tqdm(desc="Processing Chunks", unit="chunk") as progress_bar:
-            for chunk_results in pool.imap(process_chunk_with_query, chunk_args):
-                all_results.extend(chunk_results)
-                progress_bar.update(1)  # Increment progress bar dynamically
+        # Use tqdm to track progress dynamically
+        for future in tqdm(as_completed(future_to_chunk), total=len(future_to_chunk), desc="Processing Chunks"):
+            try:
+                all_results.extend(future.result())
+            except Exception as e:
+                print(f"Error processing chunk: {e}")
 
     return all_results
 
