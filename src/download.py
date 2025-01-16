@@ -1,16 +1,22 @@
-from dotenv import load_dotenv
-from pipeline.config import Config
 from tdqm import tqdm
 from multiprocessing import Pool, cpu_count
 import sys
 import os
+
+current_file = os.path.abspath(__file__) 
+lux_overlaps_root = os.path.dirname(os.path.dirname(current_file))
+parent_dir = os.path.dirname(lux_overlaps_root)
+sys.path.insert(0, parent_dir)
+
+from dotenv import load_dotenv
+from pipeline.config import Config
+
 
 load_dotenv()
 basepath = os.getenv("LUX_BASEPATH", "")
 cfgs = Config(basepath=basepath)
 idmap = cfgs.get_idmap()
 cfgs.instantiate_all()
-
 
 def process_record(record):
     """Process a single record."""
