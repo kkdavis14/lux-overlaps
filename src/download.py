@@ -38,9 +38,14 @@ def process_chunk(chunk, query):
             results.append(result)
     return results
 
-def parallel_processing(query, cache, cfgs, chunk_size=10000):
+def process_chunk_with_query(args):
+    """Wrapper to process a chunk with a query."""
+    chunk, query = args
+    return process_chunk(chunk, query)
+
+def parallel_processing(query, cache, cfgs, chunk_size=25000):
     """
-    Process records in parallel using multiprocessing.
+    Incrementally process records in parallel using multiprocessing with chunking.
     """
     internal = cache in cfgs.internal
     recordcache = (cfgs.internal if internal else cfgs.external)[cache]['recordcache']
@@ -52,11 +57,16 @@ def parallel_processing(query, cache, cfgs, chunk_size=10000):
     # Determine the number of CPU cores to use
     num_workers = cpu_count()
 
+    # Prepare the arguments for multiprocessing
+    chunk_args = ((chunk, query) for chunk in chunks)
+
+    # Use multiprocessing with a dynamic progress bar
     all_results = []
     with Pool(num_workers) as pool:
-        for chunk_results in tqdm(pool.imap(lambda chunk: process_chunk(chunk, query), chunks),
-                                  desc="Processing Chunks"):
-            all_results.extend(chunk_results)
+        with tqdm(desc="Processing Chunks", unit="chunk") as progress_bar:
+            for chunk_results in pool.imap(process_chunk_with_query, chunk_args):
+                all_results.extend(chunk_results)
+                progress_bar.update(1)  # Increment progress bar dynamically
 
     return all_results
 
