@@ -22,19 +22,20 @@ cfgs.instantiate_all()
 def fetch_data(query_word, recordcache, cache):
     """
     Query SQL to find records with type "Person" and classified_as AAT 300404670,
-    matching the query word in identified_by->classified_as->content.
+    matching the query word in identified_by->content.
     """
     search_pattern = f"%{query_word}%"  # Prepare search pattern for ILIKE
     table_name = f"{cache}_record_cache"
 
     sql_query = f"""
         SELECT 
-            jsonb_array_elements(data::jsonb->'identified_by')->>'content' AS name
+            identified_by::jsonb->>'content' AS name
         FROM {table_name},
-             jsonb_array_elements(data::jsonb->'identified_by') AS identifier
-        WHERE jsonb_array_elements(identifier::jsonb->'classified_as')->>'id' = 'http://vocab.getty.edu/aat/300404670'
-          AND data::jsonb->>'type' = 'Person'
-          AND jsonb_array_elements(data::jsonb->'identified_by')->>'content' ILIKE %s;
+             LATERAL jsonb_array_elements(data::jsonb->'identified_by') AS identified_by,
+             LATERAL jsonb_array_elements(identified_by::jsonb->'classified_as') AS classified_as
+        WHERE data::jsonb->>'type' = 'Person'
+          AND classified_as::jsonb->>'id' = 'http://vocab.getty.edu/aat/300404670'
+          AND identified_by::jsonb->>'content' ILIKE %s;
     """
 
     results = []
@@ -43,6 +44,7 @@ def fetch_data(query_word, recordcache, cache):
         results = [row['name'] for row in cur.fetchall()]
     
     return results
+
 
 def main():
     if len(sys.argv) < 4 or sys.argv[2] != "--cache":
