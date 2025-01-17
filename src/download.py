@@ -36,9 +36,12 @@ def fetch_chunk(offset, limit, query_word, recordcache, table_name):
     """
 
     results = []
-    with recordcache._cursor(internal=False) as cur:
-        cur.execute(sql_query, (search_pattern, limit, offset))
-        results = [row['name'] for row in cur.fetchall()]
+    try: 
+        with recordcache._cursor(internal=False) as cur:
+            cur.execute(sql_query, (search_pattern, limit, offset))
+            results = [row['name'] for row in cur.fetchall()]
+    except Exception as e:
+        print(f"Error fetching chunk (OFFSET={offset}, LIMIT={limit}): {e}")
     
     return results
 
@@ -47,19 +50,26 @@ def fetch_data(query_word, recordcache, cache, chunk_size=100000):
     table_name = f"{cache}_record_cache"
 
     # Determine ID range for chunking
-    with recordcache._cursor(internal=False) as cur:
-        cur.execute(f"SELECT COUNT(*) FROM {table_name}")
-        total_records = cur.fetchone()[0]
+    try:
+        with recordcache._cursor(internal=False) as cur:
+            cur.execute(f"SELECT COUNT(*) AS total FROM {table_name}")
+            result = cur.fetchone()
+            total_records = result['total'] if 'total' in result else list(result.values())[0]
+    except Exception as e:
+        print(f"Error retrieving total records: {e}")
+        return []
 
     if total_records == 0:
         print("No records found.")
         return []
 
     # Generate chunk ranges
-    chunks = [(i, chunk_size) for i in range(0, total_records, chunk_size)]
+    chunks = [(i, min(chunk_size, total_records - i)) for i in range(0, total_records, chunk_size)]
+
     
+    results = []
     # Process chunks with threading
-    with ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=4) as executor:
         futures = {
             executor.submit(fetch_chunk, offset, limit, query_word, recordcache, table_name): (offset, limit)
             for offset, limit in chunks
