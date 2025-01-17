@@ -26,9 +26,8 @@ def create_materialized_view(recordcache, cache):
     sql_query = f"""
         CREATE MATERIALIZED VIEW IF NOT EXISTS person_records AS
         SELECT 
-            id,
-            data->>'type' AS type,
-            jsonb_array_elements(data->'identified_by') AS identified_by
+            jsonb_array_elements(data->'identified_by') AS identified_by,
+            jsonb_array_elements(data->'identified_by'->'classified_as') AS classified_as
         FROM {table_name}
         WHERE data->>'type' = 'Person';
     """
@@ -38,6 +37,7 @@ def create_materialized_view(recordcache, cache):
             print("Materialized view created successfully.")
     except Exception as e:
         print(f"Error creating materialized view: {e}")
+
 
 def refresh_materialized_view(recordcache):
     """Refresh the materialized view."""
