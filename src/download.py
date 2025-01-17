@@ -19,19 +19,45 @@ cfgs = Config(basepath=basepath)
 idmap = cfgs.get_idmap()
 cfgs.instantiate_all()
 
-def fetch_chunk(offset, limit, query_word, recordcache, table_name):    
+
+def create_materialized_view(recordcache, cache):
+    """Create or replace a materialized view."""
+    table_name = f"{cache}_record_cache"
+    sql_query = f"""
+        CREATE MATERIALIZED VIEW IF NOT EXISTS person_records AS
+        SELECT 
+            id,
+            data->>'type' AS type,
+            jsonb_array_elements(data->'identified_by') AS identified_by
+        FROM {table_name}
+        WHERE data->>'type' = 'Person';
+    """
+    try:
+        with recordcache._cursor(internal=False) as cur:
+            cur.execute(sql_query)
+            print("Materialized view created successfully.")
+    except Exception as e:
+        print(f"Error creating materialized view: {e}")
+
+def refresh_materialized_view(recordcache):
+    """Refresh the materialized view."""
+    sql_query = "REFRESH MATERIALIZED VIEW person_records;"
+    try:
+        with recordcache._cursor(internal=False) as cur:
+            cur.execute(sql_query)
+            print("Materialized view refreshed successfully.")
+    except Exception as e:
+        print(f"Error refreshing materialized view: {e}")
+
+def fetch_chunk(offset, limit, query_word, recordcache):    
     """Fetch records for a specific chunk."""
     search_pattern = f"%{query_word}%"
 
     sql_query = f"""
         SELECT 
             identified_by->>'content' AS name
-        FROM {table_name},
-             LATERAL jsonb_array_elements(data::jsonb->'identified_by') AS identified_by,
-             LATERAL jsonb_array_elements(identified_by->'classified_as') AS classified_as
-        WHERE data::jsonb->>'type' = 'Person'
-          AND classified_as->>'id' = 'http://vocab.getty.edu/aat/300404670'
-          AND identified_by->>'content' ILIKE %s
+        FROM person_records
+        WHERE identified_by->>'content' ILIKE %s
         LIMIT %s OFFSET %s;
     """
 
@@ -45,14 +71,12 @@ def fetch_chunk(offset, limit, query_word, recordcache, table_name):
     
     return results
 
-def fetch_data(query_word, recordcache, cache, chunk_size=100000):
+def fetch_data(query_word, recordcache, chunk_size=500000):
     """Fetch data in parallel using threading."""
-    table_name = f"{cache}_record_cache"
 
-    # Determine ID range for chunking
     try:
         with recordcache._cursor(internal=False) as cur:
-            cur.execute(f"SELECT COUNT(*) AS total FROM {table_name}")
+            cur.execute(f"SELECT COUNT(*) AS total FROM person_records")
             result = cur.fetchone()
             total_records = result['total'] if 'total' in result else list(result.values())[0]
     except Exception as e:
@@ -71,7 +95,7 @@ def fetch_data(query_word, recordcache, cache, chunk_size=100000):
     # Process chunks with threading
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = {
-            executor.submit(fetch_chunk, offset, limit, query_word, recordcache, table_name): (offset, limit)
+            executor.submit(fetch_chunk, offset, limit, query_word, recordcache): (offset, limit)
             for offset, limit in chunks
         }
         
@@ -93,8 +117,13 @@ def main():
     internal = cache in cfgs.internal
     recordcache = (cfgs.internal if internal else cfgs.external)[cache]['recordcache']
 
-    print(f"Fetching records for '{query_word}' in cache '{cache}'...")
-    results = fetch_data(query_word, recordcache, cache)
+    # Create or refresh materialized view
+    print("Setting up materialized view...")
+    create_materialized_view(recordcache, cache)
+    refresh_materialized_view(recordcache)
+
+    print(f"Fetching records for '{query_word}' in materialized view...")
+    results = fetch_data(query_word, recordcache)
 
     print("Query completed. Results:")
     for result in tqdm(results, desc="Results"):
