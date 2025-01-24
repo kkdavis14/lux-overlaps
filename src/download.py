@@ -24,8 +24,9 @@ def materialized_view_exists(recordcache):
     sql_query = """
         SELECT EXISTS (
             SELECT 1 
-            FROM pg_matviews 
-            WHERE LOWER(matviewname) = LOWER('person_records')
+            FROM information_schema.tables 
+            WHERE LOWER(table_name) = LOWER('person_records')
+            AND table_schema = 'public'
         ) AS view_exists;
     """
     try:
@@ -41,6 +42,7 @@ def materialized_view_exists(recordcache):
     except Exception as e:
         print(f"Error checking materialized view existence: {e}")
         return False
+
 
 
 def create_materialized_view(recordcache, cache):
