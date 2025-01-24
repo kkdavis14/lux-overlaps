@@ -1,4 +1,3 @@
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
 import sys
 import os
@@ -49,60 +48,25 @@ def refresh_materialized_view(recordcache):
     except Exception as e:
         print(f"Error refreshing materialized view: {e}")
 
-def fetch_chunk(offset, limit, query_word, recordcache):    
-    """Fetch records for a specific chunk."""
+def fetch_data(query_word, recordcache):
+    """Fetch all records sequentially."""
     search_pattern = f"%{query_word}%"
-
-    sql_query = f"""
+    sql_query = """
         SELECT 
             identified_by->>'content' AS name
         FROM person_records
-        WHERE identified_by->>'content' ILIKE %s
-        LIMIT %s OFFSET %s;
+        WHERE identified_by->>'content' ILIKE %s;
     """
-
     results = []
-    try: 
-        with recordcache._cursor(internal=False) as cur:
-            cur.execute(sql_query, (search_pattern, limit, offset))
-            results = [row['name'] for row in cur.fetchall()]
-    except Exception as e:
-        print(f"Error fetching chunk (OFFSET={offset}, LIMIT={limit}): {e}")
-    
-    return results
-
-def fetch_data(query_word, recordcache, chunk_size=500000):
-    """Fetch data in parallel using threading."""
-
     try:
         with recordcache._cursor(internal=False) as cur:
-            cur.execute(f"SELECT COUNT(*) AS total FROM person_records")
-            result = cur.fetchone()
-            total_records = result['total'] if 'total' in result else list(result.values())[0]
+            cur.execute(sql_query, (search_pattern,))
+            results = [row['name'] for row in cur.fetchall()]
     except Exception as e:
-        print(f"Error retrieving total records: {e}")
-        return []
-
-    if total_records == 0:
-        print("No records found.")
-        return []
-
-    # Generate chunk ranges
-    chunks = [(i, min(chunk_size, total_records - i)) for i in range(0, total_records, chunk_size)]
-
-    
-    results = []
-    # Process chunks with threading
-    with ProcessPoolExecutor(max_workers=4) as executor:
-        futures = {
-            executor.submit(fetch_chunk, offset, limit, query_word, recordcache): (offset, limit)
-            for offset, limit in chunks
-        }
-        
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Processing Chunks"):
-            results.extend(future.result())
+        print(f"Error fetching data: {e}")
     
     return results
+
 
 def main():
     if len(sys.argv) < 4 or sys.argv[2] != "--cache":
