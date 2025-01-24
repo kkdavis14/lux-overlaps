@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
 import sys
 import os
@@ -29,7 +29,9 @@ def create_materialized_view(recordcache, cache):
             jsonb_array_elements(data->'identified_by') AS identified_by,
             jsonb_array_elements(data->'identified_by'->'classified_as') AS classified_as
         FROM {table_name}
-        WHERE data->>'type' = 'Person';
+        WHERE data->>'type' = 'Person'
+        AND jsonb_array_elements(data->'identified_by'->'classified_as')->>'id' = 'https://vocab.getty.edu/aat/300404670';
+
     """
     try:
         with recordcache._cursor(internal=False) as cur:
@@ -93,7 +95,7 @@ def fetch_data(query_word, recordcache, chunk_size=500000):
     
     results = []
     # Process chunks with threading
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ProcessPoolExecutor(max_workers=4) as executor:
         futures = {
             executor.submit(fetch_chunk, offset, limit, query_word, recordcache): (offset, limit)
             for offset, limit in chunks
