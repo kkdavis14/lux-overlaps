@@ -23,16 +23,20 @@ cfgs.instantiate_all()
 def create_materialized_view(recordcache, cache):
     """Create or replace a materialized view."""
     table_name = f"{cache}_record_cache"
+
     sql_query = f"""
-        CREATE MATERIALIZED VIEW IF NOT EXISTS person_records AS
+    CREATE MATERIALIZED VIEW IF NOT EXISTS person_records AS
+    WITH expanded AS (
         SELECT 
             jsonb_array_elements(data->'identified_by') AS identified_by,
             jsonb_array_elements(data->'identified_by'->'classified_as') AS classified_as
         FROM {table_name}
         WHERE data->>'type' = 'Person'
-        AND jsonb_array_elements(data->'identified_by'->'classified_as')->>'id' = 'https://vocab.getty.edu/aat/300404670';
-
-    """
+    )
+    SELECT *
+    FROM expanded
+    WHERE classified_as->>'id' = 'https://vocab.getty.edu/aat/300404670';
+"""
     try:
         with recordcache._cursor(internal=False) as cur:
             cur.execute(sql_query)
