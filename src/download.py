@@ -23,14 +23,19 @@ def materialized_view_exists(recordcache):
     """Check if the materialized view exists."""
     sql_query = """
         SELECT EXISTS (
-            SELECT 1 FROM pg_matviews WHERE matviewname = 'person_records'
-        );
+            SELECT 1 FROM pg_matviews WHERE LOWER(matviewname) = LOWER('person_records')
+            AND schemaname = 'public'
+        ) AS exists;
     """
     try:
         with recordcache._cursor(internal=False) as cur:
             cur.execute(sql_query)
             result = cur.fetchone()
-            return result['exists'] if result and 'exists' in result else False
+            if result and 'exists' in result:
+                return result['exists'] if result and 'exists'
+            else:
+                print(f"According to my calculations, your view doesn't exist!")
+                return False 
     except Exception as e:
         print(f"Error checking materialized view existence: {e}")
         return False
