@@ -29,7 +29,7 @@ def materialized_view_exists(recordcache):
     try:
         with recordcache._cursor(internal=False) as cur:
             cur.execute(sql_query)
-            return cur.fetchone()[0]
+            return result[0] if result else False
     except Exception as e:
         print(f"Error checking materialized view existence: {e}")
         return False
