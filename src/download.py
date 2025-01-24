@@ -32,7 +32,7 @@ def materialized_view_exists(recordcache):
             cur.execute(sql_query)
             result = cur.fetchone()
             if result and 'exists' in result:
-                return result['exists'] if result and 'exists'
+                return result['exists']
             else:
                 print(f"According to my calculations, your view doesn't exist!")
                 return False 
