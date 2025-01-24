@@ -19,11 +19,30 @@ idmap = cfgs.get_idmap()
 cfgs.instantiate_all()
 
 
+def materialized_view_exists(recordcache):
+    """Check if the materialized view exists."""
+    sql_query = """
+        SELECT EXISTS (
+            SELECT 1 FROM pg_matviews WHERE matviewname = 'person_records'
+        );
+    """
+    try:
+        with recordcache._cursor(internal=False) as cur:
+            cur.execute(sql_query)
+            return cur.fetchone()[0]
+    except Exception as e:
+        print(f"Error checking materialized view existence: {e}")
+        return False
+
 def create_materialized_view(recordcache, cache):
-    """Create or replace a materialized view."""
+    """Create a materialized view if it doesn't already exist."""
+    if materialized_view_exists(recordcache):
+        print("Materialized view already exists. Skipping creation.")
+        return
+
     table_name = f"{cache}_record_cache"
     sql_query = f"""
-        CREATE MATERIALIZED VIEW IF NOT EXISTS person_records AS
+        CREATE MATERIALIZED VIEW person_records AS
         SELECT 
             identified_by
         FROM (
@@ -39,7 +58,6 @@ def create_materialized_view(recordcache, cache):
             print("Materialized view created successfully.")
     except Exception as e:
         print(f"Error creating materialized view: {e}")
-
 
 def refresh_materialized_view(recordcache):
     """Refresh the materialized view."""
@@ -73,21 +91,24 @@ def fetch_data(query_word, recordcache):
 
 def main():
     if len(sys.argv) < 4 or sys.argv[2] != "--cache":
-        print("Usage: python script.py <query_word> --cache <cache_name>")
+        print("Usage: python script.py <query_word> --cache <cache_name> [--refresh]")
         sys.exit(1)
 
     # Extract query word and cache
     query_word = sys.argv[1]
     cache = sys.argv[3]
+    refresh_flag = "--refresh" in sys.argv
 
     # Determine if cache is internal or external
     internal = cache in cfgs.internal
     recordcache = (cfgs.internal if internal else cfgs.external)[cache]['recordcache']
 
-    # Create or refresh materialized view
+    # Create materialized view if it doesn't exist
     print("Setting up materialized view...")
     create_materialized_view(recordcache, cache)
-    refresh_materialized_view(recordcache)
+
+    if refresh_flag:
+        refresh_materialized_view(recordcache)
 
     print(f"Fetching records for '{query_word}' in materialized view...")
     results = fetch_data(query_word, recordcache)
