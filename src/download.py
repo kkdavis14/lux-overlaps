@@ -24,9 +24,11 @@ def materialized_view_exists(recordcache):
     sql_query = """
         SELECT EXISTS (
             SELECT 1 
-            FROM information_schema.tables 
-            WHERE LOWER(table_name) = LOWER('person_records')
-            AND table_schema = 'public'
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE c.relkind = 'm'
+            AND n.nspname = 'public'
+            AND c.relname = 'person_records'
         ) AS view_exists;
     """
     try:
