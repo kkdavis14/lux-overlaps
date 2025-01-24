@@ -20,21 +20,25 @@ cfgs.instantiate_all()
 
 
 def materialized_view_exists(recordcache):
-    """Check if the materialized view exists."""
+    """Check if the materialized view exists across all schemas."""
     sql_query = """
-        SELECT matviewname, schemaname 
+        SELECT schemaname, matviewname 
         FROM pg_matviews;
     """
     try:
         with recordcache._cursor(internal=False) as cur:
             cur.execute(sql_query)
             views = cur.fetchall()
-            print("Available materialized views:", [(row['matviewname'], row['schemaname']) for row in views])
             
+            # Print available views for debugging
+            print("Available materialized views:", [(row['schemaname'], row['matviewname']) for row in views])
+            
+            # Search for the view in any schema
             return any(row['matviewname'].lower() == 'person_records' for row in views)
     except Exception as e:
         print(f"Error checking materialized view existence: {e}")
         return False
+
 
 
 
