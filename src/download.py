@@ -28,7 +28,9 @@ def create_materialized_view(recordcache, cache):
             jsonb_array_elements(data->'identified_by') AS identified_by,
             jsonb_array_elements(data->'identified_by'->'classified_as') AS classified_as
         FROM {table_name}
-        WHERE data->>'type' = 'Person';
+        WHERE data->>'type' = 'Person'
+        AND jsonb_array_elements(data->'identified_by'->'classified_as')->>'id' = 'http://vocab.getty.edu/aat/300404670';
+
     """
     try:
         with recordcache._cursor(internal=False) as cur:
