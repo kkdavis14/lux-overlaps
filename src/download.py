@@ -36,7 +36,7 @@ def materialized_view_exists(view_name):
         WHERE schemaname = 'public' AND matviewname = '{view_name}';
     """
     try:
-        with psycopg2.connect(**connection_params) as conn:
+        with psycopg2.connect(**db_config) as conn:
             with conn.cursor() as cur:
                 cur.execute(sql_query)
                 result = cur.fetchone()
@@ -81,11 +81,12 @@ def create_combined_materialized_view(caches, refresh=False):
     """
 
     try:
-        with recordcache._cursor(internal=False) as cur:
-            print("Executing creation of combined materialized view 'person_records_all'...")
-            cur.execute(sql_query)
-            cur.connection.commit()  # Ensure persistence
-            print("Combined materialized view 'person_records_all' created successfully.")
+        with psycopg2.connect(**db_config) as conn:
+            with conn.cursor() as cur:
+                print("Executing creation of combined materialized view 'person_records_all'...")
+                cur.execute(sql_query)
+                conn.commit()  # Ensure persistence
+                print("Combined materialized view 'person_records_all' created successfully.")
     except Exception as e:
         print(f"Error creating combined materialized view: {e}")
 
