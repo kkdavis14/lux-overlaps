@@ -19,6 +19,27 @@ idmap = cfgs.get_idmap()
 cfgs.instantiate_all()
 
 
+def materialized_view_exists(recordcache):
+    """Check if the materialized view exists in the public schema."""
+    sql_query = """
+        SELECT matviewname 
+        FROM pg_matviews
+        WHERE schemaname = 'public' AND matviewname = 'person_records';
+    """
+    try:
+        with recordcache._cursor(internal=False) as cur:
+            cur.execute(sql_query)
+            views = cur.fetchall()
+            
+            # Print available views for debugging
+            print("Available materialized views in public schema:", [row['matviewname'] for row in views])
+            
+            return len(views) > 0
+    except Exception as e:
+        print(f"Error checking materialized view existence: {e}")
+        return False
+
+
 def create_materialized_view(recordcache, cache):
     """Create a materialized view if it doesn't already exist."""
     if materialized_view_exists(recordcache):
@@ -46,32 +67,6 @@ def create_materialized_view(recordcache, cache):
     except Exception as e:
         print(f"Error creating materialized view: {e}")
 
-
-
-def create_materialized_view(recordcache, cache):
-    """Create a materialized view if it doesn't already exist."""
-    if materialized_view_exists(recordcache):
-        print("Materialized view already exists. Skipping creation.")
-        return
-
-    table_name = f"{cache}_record_cache"
-    sql_query = f"""
-        CREATE MATERIALIZED VIEW person_records AS
-        SELECT 
-            identified_by
-        FROM (
-            SELECT jsonb_array_elements(data->'identified_by') AS identified_by
-            FROM {table_name}
-            WHERE data->>'type' = 'Person'
-        ) subquery
-        WHERE jsonb_path_exists(identified_by, '$.classified_as[*] ? (@.id == "http://vocab.getty.edu/aat/300404670")');
-    """
-    try:
-        with recordcache._cursor(internal=False) as cur:
-            cur.execute(sql_query)
-            print("Materialized view created successfully.")
-    except Exception as e:
-        print(f"Error creating materialized view: {e}")
 
 def refresh_materialized_view(recordcache):
     """Refresh the materialized view."""
