@@ -41,7 +41,7 @@ def create_combined_materialized_view(recordcache, caches):
         print("Combined materialized view already exists. Skipping creation.")
         return
 
-    # Generate UNION ALL query for multiple caches
+    # Generate UNION ALL query for multiple caches with WHERE condition inside
     union_queries = []
     for cache in caches:
         table_name = f"{cache}_record_cache"
@@ -51,14 +51,14 @@ def create_combined_materialized_view(recordcache, caches):
                 '{cache}' AS source_cache
             FROM {table_name}
             WHERE data->>'type' = 'Person'
+            AND jsonb_path_exists(data->'identified_by', '$.classified_as[*] ? (@.id == "http://vocab.getty.edu/aat/300404670")')
         """)
 
     combined_query = " UNION ALL ".join(union_queries)
 
     sql_query = f"""
         CREATE MATERIALIZED VIEW public.person_records_all AS
-        {combined_query}
-        WHERE jsonb_path_exists(identified_by, '$.classified_as[*] ? (@.id == "http://vocab.getty.edu/aat/300404670")');
+        {combined_query};
     """
 
     try:
@@ -69,6 +69,7 @@ def create_combined_materialized_view(recordcache, caches):
             print("Combined materialized view 'person_records_all' created successfully.")
     except Exception as e:
         print(f"Error creating combined materialized view: {e}")
+
 
 def refresh_materialized_view(recordcache):
     """Refresh the combined materialized view."""
