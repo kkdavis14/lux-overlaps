@@ -1,4 +1,5 @@
 from tqdm import tqdm
+import time
 import sys
 import os
 
@@ -38,8 +39,7 @@ def materialized_view_exists(recordcache):
     except Exception as e:
         print(f"Error checking materialized view existence: {e}")
         return False
-
-
+        
 def create_materialized_view(recordcache, cache):
     """Create a materialized view if it doesn't already exist."""
     if materialized_view_exists(recordcache):
@@ -61,11 +61,17 @@ def create_materialized_view(recordcache, cache):
     try:
         with recordcache._cursor(internal=False) as cur:
             print("Executing materialized view creation query...")
+            start_time = time.time()  # Start timer
+            
             cur.execute(sql_query)
             recordcache._connection.commit()  # Ensure persistence
-            print("Materialized view created successfully.")
+            
+            end_time = time.time()  # End timer
+            elapsed_time = end_time - start_time
+            print(f"Materialized view created successfully in {elapsed_time:.2f} seconds.")
     except Exception as e:
         print(f"Error creating materialized view: {e}")
+
 
 
 def refresh_materialized_view(recordcache):
@@ -79,7 +85,7 @@ def refresh_materialized_view(recordcache):
         print(f"Error refreshing materialized view: {e}")
 
 def fetch_data(query_word, recordcache):
-    """Fetch all records sequentially."""
+    """Fetch all records sequentially and measure query time."""
     search_pattern = f"%{query_word}%"
     sql_query = """
         SELECT 
@@ -90,12 +96,20 @@ def fetch_data(query_word, recordcache):
     results = []
     try:
         with recordcache._cursor(internal=False) as cur:
+            print(f"Executing fetch query for '{query_word}'...")
+            start_time = time.time()
+            
             cur.execute(sql_query, (search_pattern,))
             results = [row['name'] for row in cur.fetchall()]
+            
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            print(f"Query executed in {elapsed_time:.2f} seconds.")
     except Exception as e:
         print(f"Error fetching data: {e}")
     
     return results
+
 
 
 def main():
