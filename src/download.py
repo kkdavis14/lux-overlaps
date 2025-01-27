@@ -1,5 +1,6 @@
 from tqdm import tqdm
 import time
+import psycopg2
 import sys
 import os
 
@@ -19,7 +20,7 @@ cfgs = Config(basepath=basepath)
 idmap = cfgs.get_idmap()
 cfgs.instantiate_all()
 
-def materialized_view_exists(recordcache, view_name):
+def materialized_view_exists(view_name):
     """Check if the materialized view exists in the public schema."""
     sql_query = f"""
         SELECT matviewname 
@@ -27,19 +28,23 @@ def materialized_view_exists(recordcache, view_name):
         WHERE schemaname = 'public' AND matviewname = '{view_name}';
     """
     try:
-        with recordcache._cursor(internal=False) as cur:
-            cur.execute(sql_query)
-            views = cur.fetchall()
-            return len(views) > 0
+        with psycopg2.connect(**connection_params) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql_query)
+                result = cur.fetchone()
+                return result is not None  # Returns True if the view exists, False otherwise
     except Exception as e:
         print(f"Error checking materialized view existence: {e}")
         return False
 
-def create_combined_materialized_view(recordcache, caches):
-    """Create a consolidated materialized view of all People across caches."""
-    if materialized_view_exists(recordcache, "person_records_all"):
-        print("Combined materialized view already exists. Skipping creation.")
-        return
+def create_combined_materialized_view(caches, refresh=False):
+    """Create or refresh a consolidated materialized view of all People across caches."""
+    if materialized_view_exists("person_records_all"):
+        if refresh:
+            print("Refresh flag found. Recreating the combined materialized view...")
+        else:
+            print("Combined materialized view already exists. Skipping creation.")
+            return
 
     # Generate UNION ALL query for multiple caches with filtering inside
     union_queries = []
@@ -47,18 +52,22 @@ def create_combined_materialized_view(recordcache, caches):
         table_name = f"{cache}_record_cache"
         union_queries.append(f"""
             SELECT 
-                jsonb_array_elements(data->'identified_by') AS identified_by,
-                '{cache}' AS source_cache
-            FROM {table_name}
-            WHERE EXISTS (
-                SELECT 1 FROM jsonb_array_elements(data->'identified_by'->'classified_as') AS classified
+                identified->>'content' AS name,
+                '{table_name}' AS source_cache
+            FROM {table_name},
+                 jsonb_array_elements(data->'identified_by') AS identified
+            WHERE data->>'type' = 'Person'
+              AND EXISTS (
+                SELECT 1 
+                FROM jsonb_array_elements(identified->'classified_as') AS classified
                 WHERE classified->>'id' = 'http://vocab.getty.edu/aat/300404670'
-            )
+            );
         """)
 
     combined_query = " UNION ALL ".join(union_queries)
 
     sql_query = f"""
+        DROP MATERIALIZED VIEW IF EXISTS public.person_records_all;
         CREATE MATERIALIZED VIEW public.person_records_all AS
         {combined_query};
     """
@@ -72,15 +81,6 @@ def create_combined_materialized_view(recordcache, caches):
     except Exception as e:
         print(f"Error creating combined materialized view: {e}")
 
-def refresh_materialized_view(recordcache):
-    """Refresh the combined materialized view."""
-    sql_query = "REFRESH MATERIALIZED VIEW person_records_all;"
-    try:
-        with recordcache._cursor(internal=False) as cur:
-            cur.execute(sql_query)
-            print("Combined materialized view refreshed successfully.")
-    except Exception as e:
-        print(f"Error refreshing materialized view: {e}")
 
 def fetch_combined_data(query_word, recordcache):
     """Fetch all records sequentially from the combined materialized view."""
@@ -116,21 +116,15 @@ def main():
     query_word = sys.argv[1]
     refresh_flag = "--refresh" in sys.argv
 
-    # Use a default record cache connection
-    recordcache = cfgs.internal["ils"]["recordcache"]
-
     # Define the list of all caches to include in the combined view
     all_caches = ["ils", "ycba", "yuag", "ypm", "pmc", "ipch"]  
 
     # Create the combined materialized view
-    print("Setting up combined materialized view...")
-    create_combined_materialized_view(recordcache, all_caches)
-
-    if refresh_flag:
-        refresh_materialized_view(recordcache)
+    print("Checking on combined materialized view...")
+    create_combined_materialized_view(all_caches, refresh=refresh_flag)
 
     print(f"Fetching records for '{query_word}' in combined materialized view...")
-    results = fetch_combined_data(query_word, recordcache)
+    results = fetch_combined_data(query_word,)
 
     print("Query completed. Results:")
     for name in tqdm(results, desc="Results"):
