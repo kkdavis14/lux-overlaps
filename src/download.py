@@ -68,11 +68,10 @@ def create_combined_materialized_view(recordcache, caches):
         with recordcache._cursor(internal=False) as cur:
             print("Executing creation of combined materialized view 'person_records_all'...")
             cur.execute(sql_query)
-            recordcache._connection.commit()  # Ensure persistence
+            cur.connection.commit()  # Ensure persistence
             print("Combined materialized view 'person_records_all' created successfully.")
     except Exception as e:
         print(f"Error creating combined materialized view: {e}")
-
 
 def refresh_materialized_view(recordcache):
     """Refresh the combined materialized view."""
@@ -136,8 +135,8 @@ def main():
     results = fetch_combined_data(query_word, recordcache)
 
     print("Query completed. Results:")
-    for name, ident in tqdm(results, desc="Results"):
-        print(f"{name} (ID: {ident})")
+    for name, id in tqdm(results, desc="Results"):
+        print(f"{name} (ID: {id})")
 
 if __name__ == "__main__":
     main()
