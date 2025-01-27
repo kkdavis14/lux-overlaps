@@ -41,24 +41,25 @@ def create_combined_materialized_view(recordcache, caches):
         print("Combined materialized view already exists. Skipping creation.")
         return
 
-    # Generate UNION ALL query for multiple caches with WHERE condition inside
+    # Generate UNION ALL query for multiple caches
     union_queries = []
     for cache in caches:
         table_name = f"{cache}_record_cache"
         union_queries.append(f"""
             SELECT 
                 jsonb_array_elements(data->'identified_by') AS identified_by,
+                data->>'id' AS id,
                 '{cache}' AS source_cache
             FROM {table_name}
             WHERE data->>'type' = 'Person'
-            AND jsonb_path_exists(data->'identified_by', '$.classified_as[*] ? (@.id == "http://vocab.getty.edu/aat/300404670")')
         """)
 
     combined_query = " UNION ALL ".join(union_queries)
 
     sql_query = f"""
         CREATE MATERIALIZED VIEW public.person_records_all AS
-        {combined_query};
+        {combined_query}
+        WHERE jsonb_path_exists(identified_by, '$.classified_as[*] ? (@.id == "http://vocab.getty.edu/aat/300404670")');
     """
 
     try:
@@ -69,7 +70,6 @@ def create_combined_materialized_view(recordcache, caches):
             print("Combined materialized view 'person_records_all' created successfully.")
     except Exception as e:
         print(f"Error creating combined materialized view: {e}")
-
 
 def refresh_materialized_view(recordcache):
     """Refresh the combined materialized view."""
@@ -87,7 +87,7 @@ def fetch_combined_data(query_word, recordcache):
     sql_query = """
         SELECT 
             identified_by->>'content' AS name,
-            source_cache
+            id
         FROM person_records_all
         WHERE identified_by->>'content' ILIKE %s;
     """
@@ -98,7 +98,7 @@ def fetch_combined_data(query_word, recordcache):
             start_time = time.time()
             
             cur.execute(sql_query, (search_pattern,))
-            results = [(row['name'], row['source_cache']) for row in cur.fetchall()]
+            results = [(row['name'], row['id']) for row in cur.fetchall()]
             
             end_time = time.time()
             print(f"Query retrieved {len(results)} results in {end_time - start_time:.2f} seconds.")
@@ -117,7 +117,7 @@ def main():
     refresh_flag = "--refresh" in sys.argv
 
     # Use a default record cache connection
-    recordcache = cfgs.internal["ils"]["recordcache"]
+    recordcache = cfgs.external["ils"]["recordcache"]
 
     # Define the list of all caches to include in the combined view
     all_caches = ["ils", "ycba", "yuag", "ypm", "pmc", "ipch"]  
@@ -133,8 +133,8 @@ def main():
     results = fetch_combined_data(query_word, recordcache)
 
     print("Query completed. Results:")
-    for result, source in tqdm(results, desc="Results"):
-        print(f"{result} (from {source})")
+    for name, ident in tqdm(results, desc="Results"):
+        print(f"{name} (ID: {ident})")
 
 if __name__ == "__main__":
     main()
