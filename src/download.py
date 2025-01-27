@@ -117,7 +117,7 @@ def main():
     refresh_flag = "--refresh" in sys.argv
 
     # Use a default record cache connection
-    recordcache = cfgs.external["ils"]["recordcache"]
+    recordcache = cfgs.internal["ils"]["recordcache"]
 
     # Define the list of all caches to include in the combined view
     all_caches = ["ils", "ycba", "yuag", "ypm", "pmc", "ipch"]  
