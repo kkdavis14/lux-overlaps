@@ -19,7 +19,6 @@ cfgs = Config(basepath=basepath)
 idmap = cfgs.get_idmap()
 cfgs.instantiate_all()
 
-
 def materialized_view_exists(recordcache, view_name):
     """Check if the materialized view exists in the public schema."""
     sql_query = f"""
@@ -36,7 +35,6 @@ def materialized_view_exists(recordcache, view_name):
         print(f"Error checking materialized view existence: {e}")
         return False
 
-        
 def create_combined_materialized_view(recordcache, caches):
     """Create a consolidated materialized view of all People across caches."""
     if materialized_view_exists(recordcache, "person_records_all"):
@@ -71,7 +69,6 @@ def create_combined_materialized_view(recordcache, caches):
             print("Combined materialized view 'person_records_all' created successfully.")
     except Exception as e:
         print(f"Error creating combined materialized view: {e}")
-
 
 def refresh_materialized_view(recordcache):
     """Refresh the combined materialized view."""
@@ -109,20 +106,17 @@ def fetch_combined_data(query_word, recordcache):
     
     return results
 
-
 def main():
-    if len(sys.argv) < 4 or sys.argv[2] != "--cache":
-        print("Usage: python script.py <query_word> --cache <cache_name> [--refresh]")
+    if len(sys.argv) < 2:
+        print("Usage: python script.py <query_word> [--refresh]")
         sys.exit(1)
 
-    # Extract query word and cache
+    # Extract query word and check if refresh is requested
     query_word = sys.argv[1]
-    cache = sys.argv[3]
     refresh_flag = "--refresh" in sys.argv
 
-    # Determine if cache is internal or external
-    internal = cache in cfgs.internal
-    recordcache = (cfgs.internal if internal else cfgs.external)[cache]['recordcache']
+    # Use a default record cache connection
+    recordcache = cfgs.external["ils"]["recordcache"]
 
     # Define the list of all caches to include in the combined view
     all_caches = ["ils", "ycba", "yuag", "ypm", "pmc", "ipch"]  
@@ -143,4 +137,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
