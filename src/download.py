@@ -69,7 +69,7 @@ def create_combined_materialized_view(caches, refresh=False):
                 SELECT 1 
                 FROM jsonb_array_elements(identified->'classified_as') AS classified
                 WHERE classified->>'id' = 'http://vocab.getty.edu/aat/300404670'
-            );
+            )
         """)
 
     combined_query = " UNION ALL ".join(union_queries)
