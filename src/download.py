@@ -20,6 +20,14 @@ cfgs = Config(basepath=basepath)
 idmap = cfgs.get_idmap()
 cfgs.instantiate_all()
 
+db_config = {
+    "host": cfgs.caches["host"],
+    "port": cfgs.caches["port"],
+    "user": cfgs.caches["user"],
+    "password": cfgs.caches["password"],
+    "dbname": cfgs.caches["dbname"],
+}
+
 def materialized_view_exists(view_name):
     """Check if the materialized view exists in the public schema."""
     sql_query = f"""
@@ -82,30 +90,35 @@ def create_combined_materialized_view(caches, refresh=False):
         print(f"Error creating combined materialized view: {e}")
 
 
-def fetch_combined_data(query_word, recordcache):
+def fetch_combined_data(query_word):
     """Fetch all records sequentially from the combined materialized view."""
     search_pattern = f"%{query_word}%"
     sql_query = """
         SELECT 
-            identified_by->>'content' AS name
+            name
         FROM person_records_all
-        WHERE identified_by->>'content' ILIKE %s;
+        WHERE name ILIKE %s;
     """
     results = []
+
     try:
-        with recordcache._cursor(internal=False) as cur:
-            print(f"Executing fetch query from 'person_records_all' for '{query_word}'...")
-            start_time = time.time()
-            
-            cur.execute(sql_query, (search_pattern,))
-            results = [row['name'] for row in cur.fetchall()]
-            
-            end_time = time.time()
-            print(f"Query retrieved {len(results)} results in {end_time - start_time:.2f} seconds.")
+        # Use the global db_config variable
+        with psycopg2.connect(**db_config) as conn:
+            with conn.cursor() as cur:
+                print(f"Executing fetch query from 'person_records_all' for '{query_word}'...")
+                start_time = time.time()
+                
+                # Execute the query with the search pattern
+                cur.execute(sql_query, (search_pattern,))
+                results = [row[0] for row in cur.fetchall()]
+                
+                end_time = time.time()
+                print(f"Query retrieved {len(results)} results in {end_time - start_time:.2f} seconds.")
     except Exception as e:
         print(f"Error fetching data from 'person_records_all': {e}")
     
     return results
+
 
 def main():
     if len(sys.argv) < 2:
