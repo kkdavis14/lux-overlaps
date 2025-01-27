@@ -48,7 +48,6 @@ def create_combined_materialized_view(recordcache, caches):
         union_queries.append(f"""
             SELECT 
                 jsonb_array_elements(data->'identified_by') AS identified_by,
-                data->>'id' AS id,
                 '{cache}' AS source_cache
             FROM {table_name}
             WHERE EXISTS (
@@ -81,15 +80,14 @@ def refresh_materialized_view(recordcache):
             cur.execute(sql_query)
             print("Combined materialized view refreshed successfully.")
     except Exception as e:
-        print(f"Error refreshing combined materialized view: {e}")
+        print(f"Error refreshing materialized view: {e}")
 
 def fetch_combined_data(query_word, recordcache):
     """Fetch all records sequentially from the combined materialized view."""
     search_pattern = f"%{query_word}%"
     sql_query = """
         SELECT 
-            identified_by->>'content' AS name,
-            id
+            identified_by->>'content' AS name
         FROM person_records_all
         WHERE identified_by->>'content' ILIKE %s;
     """
@@ -100,7 +98,7 @@ def fetch_combined_data(query_word, recordcache):
             start_time = time.time()
             
             cur.execute(sql_query, (search_pattern,))
-            results = [(row['name'], row['id']) for row in cur.fetchall()]
+            results = [row['name'] for row in cur.fetchall()]
             
             end_time = time.time()
             print(f"Query retrieved {len(results)} results in {end_time - start_time:.2f} seconds.")
@@ -135,8 +133,8 @@ def main():
     results = fetch_combined_data(query_word, recordcache)
 
     print("Query completed. Results:")
-    for name, id in tqdm(results, desc="Results"):
-        print(f"{name} (ID: {id})")
+    for name in tqdm(results, desc="Results"):
+        print(f"{name}")
 
 if __name__ == "__main__":
     main()
